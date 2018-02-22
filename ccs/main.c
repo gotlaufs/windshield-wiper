@@ -17,14 +17,14 @@
 #define TOGGLE_2_PIN    BIT4    // Toggle sw pin 2          P1.4
 
 // 8-position switch for interval mode
-#define POS_SW_1_PIN    0x00    // P
-#define POS_SW_2_PIN    0x00    // P
-#define POS_SW_3_PIN    0x00    // P
-#define POS_SW_4_PIN    0x00    // P
-#define POS_SW_5_PIN    0x00    // P
-#define POS_SW_6_PIN    0x00    // P
-#define POS_SW_7_PIN    0x00    // P
-#define POS_SW_8_PIN    0x00    // P
+#define POS_SW_1_PIN    BIT6    // P2.6
+#define POS_SW_2_PIN    BIT7    // P2.7
+#define POS_SW_3_PIN    BIT7    // P1.7
+#define POS_SW_4_PIN    BIT6    // P1.6
+#define POS_SW_5_PIN    BIT5    // P2.5
+#define POS_SW_6_PIN    BIT4    // P2.4
+#define POS_SW_7_PIN    BIT2    // P1.2
+#define POS_SW_8_PIN    BIT3    // P1.3
 
 uint8_t get_interval();
 void get_wiper_mode();
@@ -42,12 +42,12 @@ enum{
     INTERVAL,
     SLOW,
     FAST
-} WIPER_MODE = SLOW;
+} WIPER_MODE;
 
 enum{
     OFF,
     ON
-} DEVICE_STATE = OFF;
+} DEVICE_STATE;
 
 
 int main(void)
@@ -61,10 +61,14 @@ int main(void)
 
     // Need to initialize vars on MSP430 manually
     millis = 0;
+    DEVICE_STATE = OFF;
+    WIPER_MODE = SLOW;
 
     P1DIR = 0x00;
     P2DIR = 0x00;
+    P2SEL = BIT7 + BIT6;    // Enable GPIO on XTAL pins
 
+    // Outputs
     P2OUT &= ~(STATUS_LED_PIN + WIPER_FAST_PIN + WIPER_SLOW_PIN);
     P2DIR |= STATUS_LED_PIN + WIPER_FAST_PIN + WIPER_SLOW_PIN;
 
@@ -72,12 +76,14 @@ int main(void)
     P2REN |= 0xFF - (STATUS_LED_PIN + WIPER_FAST_PIN + WIPER_SLOW_PIN);
 
     P1OUT |= 0xFF;
-    P2OUT |= 0xFF - STATUS_LED_PIN;
+    P2OUT |= 0xFF - (STATUS_LED_PIN + WIPER_FAST_PIN + WIPER_SLOW_PIN);
 
     P2IE  |= ON_OFF_PIN;
+    P2IES |= ON_OFF_PIN;
     P2IFG &= ~ON_OFF_PIN;
 
     P1IE  |= WIPER_HALF_PIN + WIPER_ZERO_PIN;
+    P1IES |= WIPER_HALF_PIN + WIPER_ZERO_PIN;
     P1IFG &= ~(WIPER_HALF_PIN + WIPER_ZERO_PIN);
 
     // Set up timer for wiper interval mode
@@ -118,13 +124,34 @@ int main(void)
 uint8_t get_interval(){
     // Read rotary switch and return the current interval in seconds
     uint8_t interval = INTERVAL_SECONDS[7];
+    if (P1IN & POS_SW_8_PIN)
+        interval = INTERVAL_SECONDS[7];
+    else if (P1IN & POS_SW_7_PIN)
+        interval = INTERVAL_SECONDS[6];
+    else if (P2IN & POS_SW_6_PIN)
+        interval = INTERVAL_SECONDS[5];
+    else if (P2IN & POS_SW_5_PIN)
+        interval = INTERVAL_SECONDS[4];
+    else if (P1IN & POS_SW_4_PIN)
+        interval = INTERVAL_SECONDS[3];
+    else if (P1IN & POS_SW_3_PIN)
+        interval = INTERVAL_SECONDS[2];
+    else if (P2IN & POS_SW_2_PIN)
+        interval = INTERVAL_SECONDS[1];
+    else if (P2IN & POS_SW_1_PIN)
+        interval = INTERVAL_SECONDS[0];
 
     return interval;
 }
 
 
 void get_wiper_mode(){
-    WIPER_MODE = SLOW;
+    if (P1IN & TOGGLE_1_PIN)
+        WIPER_MODE = INTERVAL;
+    else if (P1IN & TOGGLE_2_PIN)
+        WIPER_MODE = FAST;
+    else
+        WIPER_MODE = SLOW;
 }
 
 
@@ -148,7 +175,7 @@ void wiper_off(){
 __attribute__((interrupt(PORT1_VECTOR)))
 void port_1_handler(void)
 {
-    if (P1IFG && WIPER_ZERO_PIN){
+    if (P1IFG & WIPER_ZERO_PIN){
         if (DEVICE_STATE == OFF){
             wiper_off();
         }
@@ -159,7 +186,7 @@ void port_1_handler(void)
         P1IFG &= ~WIPER_ZERO_PIN;
     }
 
-    if (P1IFG && WIPER_HALF_PIN){
+    if (P1IFG & WIPER_HALF_PIN){
         // Nothing here currently..
         P1IFG &= ~WIPER_HALF_PIN;
     }
@@ -169,7 +196,7 @@ __attribute__((interrupt(PORT2_VECTOR)))
 void port_2_handler(void)
 {
     static uint16_t last_press = 0;
-    if (P2IFG && ON_OFF_PIN){
+    if (P2IFG & ON_OFF_PIN){
         P2IFG &= ~ON_OFF_PIN;
 
         if ((millis - last_press) > BUTTON_DEBOUNCE_MS){
