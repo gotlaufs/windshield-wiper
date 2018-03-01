@@ -38,13 +38,13 @@ uint8_t INTERVAL_SECONDS[8] = {3, 6, 9, 12, 15, 18, 21, 24};
 volatile uint16_t millis;
 volatile uint8_t interval_seconds_left;
 
-enum{
+volatile enum{
     INTERVAL,
     SLOW,
     FAST
 } WIPER_MODE;
 
-enum{
+volatile enum{
     OFF,
     ON
 } DEVICE_STATE;
@@ -66,7 +66,7 @@ int main(void)
 
     P1DIR = 0x00;
     P2DIR = 0x00;
-    P2SEL = BIT7 + BIT6;    // Enable GPIO on XTAL pins
+    P2SEL &= ~(BIT7 + BIT6);    // Enable GPIO on XTAL pins
 
     // Outputs
     P2OUT &= ~(STATUS_LED_PIN + WIPER_FAST_PIN + WIPER_SLOW_PIN);
@@ -80,18 +80,21 @@ int main(void)
 
     P2IE  |= ON_OFF_PIN;
     P2IES |= ON_OFF_PIN;
-    P2IFG &= ~ON_OFF_PIN;
+    P2IFG = 0;
 
     P1IE  |= WIPER_HALF_PIN + WIPER_ZERO_PIN;
     P1IES |= WIPER_HALF_PIN + WIPER_ZERO_PIN;
-    P1IFG &= ~(WIPER_HALF_PIN + WIPER_ZERO_PIN);
+    P1IFG = 0;
 
     // Set up timer for wiper interval mode
     TA0CCR0 = 62500;   // TCLK = SMCLK/8 = 62.5kHz. Interrupt every 1 second.
-    TA0CCR1 = 125;     // Interrupt every 2ms
     TA0CCTL0 = CCIE;
-    TA0CCTL1 = CCIE;
     TA0CTL = TASSEL_2 + ID_3 + MC_1;
+
+    // Timer for button debounce
+    TA1CCR0 = 125;      // Interrupt every 1ms
+    TA1CCTL0 = CCIE;
+    TA1CTL = TASSEL_2 + ID_2 + MC_1;
 
     __nop();
     __eint();
@@ -113,7 +116,7 @@ int main(void)
                     wiper_fast();
                     break;
                 default:
-                    DEVICE_STATE = SLOW;
+                    WIPER_MODE = SLOW;
             }
         }
     }
@@ -124,21 +127,21 @@ int main(void)
 uint8_t get_interval(){
     // Read rotary switch and return the current interval in seconds
     uint8_t interval = INTERVAL_SECONDS[7];
-    if (P1IN & POS_SW_8_PIN)
+    if ((~P1IN) & POS_SW_8_PIN)
         interval = INTERVAL_SECONDS[7];
-    else if (P1IN & POS_SW_7_PIN)
+    else if ((~P1IN) & POS_SW_7_PIN)
         interval = INTERVAL_SECONDS[6];
-    else if (P2IN & POS_SW_6_PIN)
+    else if ((~P2IN) & POS_SW_6_PIN)
         interval = INTERVAL_SECONDS[5];
-    else if (P2IN & POS_SW_5_PIN)
+    else if ((~P2IN) & POS_SW_5_PIN)
         interval = INTERVAL_SECONDS[4];
-    else if (P1IN & POS_SW_4_PIN)
+    else if ((~P1IN) & POS_SW_4_PIN)
         interval = INTERVAL_SECONDS[3];
-    else if (P1IN & POS_SW_3_PIN)
+    else if ((~P1IN) & POS_SW_3_PIN)
         interval = INTERVAL_SECONDS[2];
-    else if (P2IN & POS_SW_2_PIN)
+    else if ((~P2IN) & POS_SW_2_PIN)
         interval = INTERVAL_SECONDS[1];
-    else if (P2IN & POS_SW_1_PIN)
+    else if ((~P2IN) & POS_SW_1_PIN)
         interval = INTERVAL_SECONDS[0];
 
     return interval;
@@ -146,9 +149,9 @@ uint8_t get_interval(){
 
 
 void get_wiper_mode(){
-    if (P1IN & TOGGLE_1_PIN)
+    if ((~P1IN) & TOGGLE_1_PIN)
         WIPER_MODE = INTERVAL;
-    else if (P1IN & TOGGLE_2_PIN)
+    else if ((~P1IN) & TOGGLE_2_PIN)
         WIPER_MODE = FAST;
     else
         WIPER_MODE = SLOW;
@@ -156,13 +159,13 @@ void get_wiper_mode(){
 
 
 void wiper_fast(){
-    wiper_off();
+    P2OUT &= ~WIPER_SLOW_PIN;
     P2OUT |= WIPER_FAST_PIN;
 }
 
 
 void wiper_slow(){
-    wiper_off();
+    P2OUT &= ~WIPER_FAST_PIN;
     P2OUT |= WIPER_SLOW_PIN;
 }
 
@@ -223,11 +226,11 @@ void timer_handler_1(void)
     }
 }
 
-__attribute__((interrupt(TIMER0_A1_VECTOR)))
+__attribute__((interrupt(TIMER1_A0_VECTOR)))
 void timer_handler_2(void)
 {
-    // Everything else interrupt (2 ms interrupt)
-    millis += 2;
+    // Millisecond interrupt
+    millis += 1;
 }
 
 // TODO: Check all 'if' statements
