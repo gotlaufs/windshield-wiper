@@ -1,6 +1,6 @@
 # windshield-wiper
 
-Small device to interface some buttons to a Winshield Wiper Motor.
+Small device to control a Winshield Wiper Motor.
 
 ### Features
 3 speed modes:
@@ -8,6 +8,8 @@ Small device to interface some buttons to a Winshield Wiper Motor.
  - Fast
  - Interval (with selectable delay)
 
-Made for a friend
+### Development
+Uses MSP430G2553 MCU from TI.
+Built using CCS and GCC compiler.
 
 ![Picture](pics/front2.jpg?raw=true "Finished device")
