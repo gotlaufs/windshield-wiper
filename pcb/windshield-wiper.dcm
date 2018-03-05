@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP SW_Rotary8
+D rotary switch with 8 positions
+K rotary switch
+F ../datasheets/sw_print-rotary-switch-1p8t.jpg
+$ENDCMP
+#
+#End Doc Library
