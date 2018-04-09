@@ -1,9 +1,9 @@
 EESchema-DOCLIB  Version 2.0
 #
 $CMP SW_Rotary8
-D rotary switch with 12 positions
+D rotary switch with 8 positions
 K rotary switch
-F http://cdn-reichelt.de/documents/datenblatt/C200/DS-Serie%23LOR.pdf
+F ../datasheets/sw_print-rotary-switch-1p8t.jpg
 $ENDCMP
 #
 #End Doc Library

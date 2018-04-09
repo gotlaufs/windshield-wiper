@@ -1,0 +1,3 @@
+(fp_lib_table
+  (lib (name windshield_wiper)(type KiCad)(uri "$(KIPRJMOD)/windshield_wiper.pretty")(options "")(descr ""))
+)
